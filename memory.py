@@ -109,6 +109,7 @@ class ReplayMemory():
   def _get_sample_from_segment(self, segment, i):
     valid = False
     while not valid:
+    #   print(segment, i)
       sample = np.random.uniform(i * segment, (i + 1) * segment)  # Uniformly sample an element from within a segment
       prob, idx, tree_idx = self.transitions.find(sample)  # Retrieve sample from tree with un-normalised probability
       # Resample if transition straddled current index or probablity 0
