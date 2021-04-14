@@ -80,12 +80,25 @@ class Agent():
   def learn(self, mem):
     # Sample transitions
     idxs, states, actions, returns, next_states, nonterminals, weights = mem.sample(self.batch_size)
+    print('\n\n---------------')
+    print(f'idxs: {idxs}, ')
+    print(f'states: {states.shape}, ')
+    print(f'actions: {actions.shape}, ')
+    print(f'returns: {returns.shape}, ')
+    print(f'next_states: {next_states.shape}, ')
+    print(f'nonterminals: {nonterminals.shape}, ')
+    print(f'weights: {weights.shape},')
+    
     aug_states_1 = aug(states).to(device=self.args.device)
     aug_states_2 = aug(states).to(device=self.args.device)
+
+    print(f'aug_states_1: {aug_states_1.shape}')
+    print(f'aug_states_2: {aug_states_2.shape}')
+
     # Calculate current state probabilities (online network noise already sampled)
     log_ps, _ = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
-    _, z_anch = self.online_net(aug_states_1, log=True)
-    _, z_target = self.momentum_net(aug_states_2, log=True)
+    _, z_anch = self.online_net(aug_states_1, log=True) #z_q
+    _, z_target = self.momentum_net(aug_states_2, log=True) #z_k
     z_proj = torch.matmul(self.online_net.W, z_target.T)
     logits = torch.matmul(z_anch, z_proj)
     logits = (logits - torch.max(logits, 1)[0][:, None])
@@ -94,6 +107,15 @@ class Agent():
     moco_loss = (nn.CrossEntropyLoss()(logits, labels)).to(device=self.args.device)
 
     log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
+    
+    print(f'z_anch: {z_anch.shape}')
+    print(f'z_target: {z_target.shape}')
+    print(f'z_proj: {z_proj.shape}')
+    print(f'logits: {logits.shape}')
+    print(f'labels: {labels.shape}')
+    print('---------------\n\n')
+    
+    1/0
 
     with torch.no_grad():
       # Calculate nth next state probabilities
