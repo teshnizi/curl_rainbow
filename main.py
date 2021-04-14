@@ -173,7 +173,7 @@ else:
       if T % args.replay_frequency == 0:
         #for _ in range(4):
         dqn.learn(mem)  # Train with n-step distributional double-Q learning
-        dqn.update_momentum_net() # MoCo momentum upate
+        # dqn.update_momentum_net() # MoCo momentum upate
 
       if T % args.evaluation_interval == 0:
         dqn.eval()  # Set DQN (online network) to evaluation mode
