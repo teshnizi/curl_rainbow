@@ -162,20 +162,20 @@ class Agent():
   def learn_old(self, mem):
     # Sample transitions
     idxs, states, actions, returns, next_states, nonterminals, weights = mem.sample(self.batch_size)
-    print('\n\n---------------')
-    print(f'idxs: {idxs}, ')
-    print(f'states: {states.shape}, ')
-    print(f'actions: {actions.shape}, ')
-    print(f'returns: {returns.shape}, ')
-    print(f'next_states: {next_states.shape}, ')
-    print(f'nonterminals: {nonterminals.shape}, ')
-    print(f'weights: {weights.shape},')
+    # print('\n\n---------------')
+    # print(f'idxs: {idxs}, ')
+    # print(f'states: {states.shape}, ')
+    # print(f'actions: {actions.shape}, ')
+    # print(f'returns: {returns.shape}, ')
+    # print(f'next_states: {next_states.shape}, ')
+    # print(f'nonterminals: {nonterminals.shape}, ')
+    # print(f'weights: {weights.shape},')
     
     aug_states_1 = aug(states).to(device=self.args.device)
     aug_states_2 = aug(states).to(device=self.args.device)
 
-    print(f'aug_states_1: {aug_states_1.shape}')
-    print(f'aug_states_2: {aug_states_2.shape}')
+    # print(f'aug_states_1: {aug_states_1.shape}')
+    # print(f'aug_states_2: {aug_states_2.shape}')
 
     # Calculate current state probabilities (online network noise already sampled)
     log_ps, _ = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
@@ -190,14 +190,14 @@ class Agent():
 
     log_ps_a = log_ps[range(self.batch_size), actions]  # log p(s_t, a_t; θonline)
     
-    print(f'z_anch: {z_anch.shape}')
-    print(f'z_target: {z_target.shape}')
-    print(f'z_proj: {z_proj.shape}')
-    print(f'logits: {logits.shape}')
-    print(logits)
-    print(f'labels: {labels.shape}')
-    print(labels)
-    print('---------------\n\n')
+    # print(f'z_anch: {z_anch.shape}')
+    # print(f'z_target: {z_target.shape}')
+    # print(f'z_proj: {z_proj.shape}')
+    # print(f'logits: {logits.shape}')
+    # print(logits)
+    # print(f'labels: {labels.shape}')
+    # print(labels)
+    # print('---------------\n\n')
     
     # 1/0
 
