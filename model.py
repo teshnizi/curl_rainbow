@@ -81,23 +81,45 @@ class DQN(nn.Module):
     self.b_c = nn.Parameter(torch.zeros(128))
     self.W = nn.Parameter(torch.rand(128, 128))
 
+    self.W_p_1 = nn.Parameter(torch.rand(128, 64))
+    self.b_p_1 = nn .Parameter(torch.zeros(64))
+
+    self.W_p_2 = nn.Parameter(torch.rand(64, 128))
+    self.b_p_2 = nn .Parameter(torch.zeros(128))
+
+    # self.predictor = nn.Sequential(
+    #     nn.Linear(576, 64),
+    #     # nn.BatchNorm1d(64),
+    #     nn.ReLU(inplace=True),
+    #     nn.Linear(64, 128)
+    #     )
+
   def forward(self, x, log=False):
     x = self.convs(x)
     x = x.view(-1, self.conv_output_size)
+
     v = self.fc_z_v(F.relu(self.fc_h_v(x)))  # Value stream
     a = self.fc_z_a(F.relu(self.fc_h_a(x)))  # Advantage stream
+
     h = torch.matmul(x, self.W_h) + self.b_h # Contrastive head
     h = nn.LayerNorm(h.shape[1])(h)
     h = F.relu(h)
     h = torch.matmul(h, self.W_c) + self.b_c # Contrastive head
     h = nn.LayerNorm(128)(h)
+    
     v, a = v.view(-1, 1, self.atoms), a.view(-1, self.action_space, self.atoms)
     q = v + a - a.mean(1, keepdim=True)  # Combine streams
     if log:  # Use log softmax for numerical stability
       q = F.log_softmax(q, dim=2)  # Log probabilities with action over second dimension
     else:
       q = F.softmax(q, dim=2)  # Probabilities with action over second dimension
-    return q, h
+    
+    p = torch.matmul(h, self.W_p_1) + self.b_p_1
+    p = F.relu(p)
+    p = torch.matmul(p, self.W_p_2) + self.b_p_2
+    p = nn.LayerNorm(128)(p)
+
+    return q, h, p
 
   def reset_noise(self):
     for name, module in self.named_children():
