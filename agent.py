@@ -17,9 +17,12 @@ import kornia.augmentation as aug
 import torch.nn as nn
 from model import DQN
 from model_simsiam import prediction_MLP, D
+import torch.nn.functional as F 
 
 random_shift = nn.Sequential(aug.RandomCrop((80, 80)), nn.ReplicationPad2d(4), aug.RandomCrop((84, 84)))
 aug = random_shift
+
+
 
 class Agent():
   def __init__(self, args, env):
@@ -38,7 +41,7 @@ class Agent():
 
     self.online_net = DQN(args, self.action_space).to(device=args.device)
     # self.momentum_net = DQN(args, self.action_space).to(device=args.device)
-    self.predictor = prediction_MLP(in_dim=128, hidden_dim=128, out_dim=128)
+    # self.predictor = prediction_MLP(in_dim=128, hidden_dim=128, out_dim=128)
 
     if args.model:  # Load pretrained model if provided
       if os.path.isfile(args.model):
@@ -53,6 +56,7 @@ class Agent():
         raise FileNotFoundError(args.model)
 
     self.online_net.train()
+    # self.pred.train()
     # self.initialize_momentum_net()
     # self.momentum_net.train()
 
@@ -73,7 +77,7 @@ class Agent():
   # Acts based on single state (no batch)
   def act(self, state):
     with torch.no_grad():
-      a, _ = self.online_net(state.unsqueeze(0))
+      a, _, _ = self.online_net(state.unsqueeze(0))
       return (a * self.support).sum(2).argmax(1).item()
 
   # Acts with an ε-greedy policy (used for evaluation only)
@@ -100,13 +104,21 @@ class Agent():
     # print(f'aug_states_2: {aug_states_2.shape}')
 
     # Calculate current state probabilities (online network noise already sampled)
-    log_ps, _ = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
+    log_ps, _, _ = self.online_net(states, log=True)  # Log probabilities log p(s_t, ·; θonline)
 
-    _, z_1 = self.online_net(aug_states_1, log=True) 
-    _, z_2 = self.online_net(aug_states_2, log=True) 
-    p_1, p_2 = self.predictor(z_1), self.predictor(z_2)
+    _, z_1, p_1 = self.online_net(aug_states_1, log=True) 
+    _, z_2, p_2 = self.online_net(aug_states_2, log=True) 
+    # p_1, p_2 = self.pred(z_1), self.pred(z_2)
+    
+    # with torch.no_grad():
+    #     p_2 = self.pred(z_2)   
 
-    simsiam_loss = D(p_1, z_2)/2 + D(p_2, z_1)/2
+    # simsiam_loss = D(p_1, z_2)/2 + D(p_2, z_1)/2
+    # simsiam_loss = p_1.mean() + p_2.mean()
+    simsiam_loss = - F.cosine_similarity(p_1, z_2.detach(), dim=-1).mean()
+    print(simsiam_loss)
+    # simsiam_loss = 0
+
     # _, z_target = self.momentum_net(aug_states_2, log=True) #z_k
     # z_proj = torch.matmul(self.online_net.W, z_target.T)
     # logits = torch.matmul(z_anch, z_proj)
@@ -125,11 +137,11 @@ class Agent():
 
     with torch.no_grad():
       # Calculate nth next state probabilities
-      pns, _ = self.online_net(next_states)  # Probabilities p(s_t+n, ·; θonline)
+      pns, _, _ = self.online_net(next_states)  # Probabilities p(s_t+n, ·; θonline)
       dns = self.support.expand_as(pns) * pns  # Distribution d_t+n = (z, p(s_t+n, ·; θonline))
       argmax_indices_ns = dns.sum(2).argmax(1)  # Perform argmax action selection using online network: argmax_a[(z, p(s_t+n, a; θonline))]
       self.target_net.reset_noise()  # Sample new target net noise
-      pns, _ = self.target_net(next_states)  # Probabilities p(s_t+n, ·; θtarget)
+      pns, _, _ = self.target_net(next_states)  # Probabilities p(s_t+n, ·; θtarget)
       pns_a = pns[range(self.batch_size), argmax_indices_ns]  # Double-Q probabilities p(s_t+n, argmax_a[(z, p(s_t+n, a; θonline))]; θtarget)
 
       # Compute Tz (Bellman operator T applied to z)
@@ -152,6 +164,7 @@ class Agent():
     # loss = loss + (moco_loss * self.coeff)
     loss = loss + (simsiam_loss * self.coeff)
     self.online_net.zero_grad()
+    # self.pred.zero_grad()
     curl_loss = (weights * loss).mean()
     curl_loss.mean().backward()  # Backpropagate importance-weighted minibatch loss
     clip_grad_norm_(self.online_net.parameters(), self.norm_clip)  # Clip gradients by L2 norm
@@ -203,7 +216,7 @@ class Agent():
 
     with torch.no_grad():
       # Calculate nth next state probabilities
-      pns, _ = self.online_net(next_states)  # Probabilities p(s_t+n, ·; θonline)
+      pns, _, _ = self.online_net(next_states)  # Probabilities p(s_t+n, ·; θonline)
       dns = self.support.expand_as(pns) * pns  # Distribution d_t+n = (z, p(s_t+n, ·; θonline))
       argmax_indices_ns = dns.sum(2).argmax(1)  # Perform argmax action selection using online network: argmax_a[(z, p(s_t+n, a; θonline))]
       self.target_net.reset_noise()  # Sample new target net noise
@@ -257,7 +270,7 @@ class Agent():
   # Evaluates Q-value based on single state (no batch)
   def evaluate_q(self, state):
     with torch.no_grad():
-      a, _ = self.online_net(state.unsqueeze(0))
+      a, _, _ = self.online_net(state.unsqueeze(0))
       return (a * self.support).sum(2).max(1)[0].item()
 
   def train(self):
