@@ -1,0 +1,4 @@
+__pycache__
+.vscode
+slurm_out
+results
